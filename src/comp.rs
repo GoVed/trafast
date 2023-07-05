@@ -22,13 +22,16 @@ impl World{
             vehicles: Vec::new(),
         }
     }
-    pub fn add_vehicle(&mut self,position:f32,velocity:f32,acceleration:f32,break_decceleration:f32,on_road:usize){
+    pub fn add_vehicle(&mut self,position:f32,velocity:f32,acceleration:f32,break_decceleration:f32,on_road:usize,watch_distance:f32,destination:usize,destination_position:f32){
         let vehicle = Vehicle{
             position: position,
             velocity: velocity,
             acceleration: acceleration,
             break_decceleration: break_decceleration,
-            on_road: on_road
+            on_road: on_road,
+            watch_distance: watch_distance,
+            destination: destination,
+            destination_position: destination_position
         };
         
         self.vehicles.push(vehicle);
@@ -79,7 +82,10 @@ pub struct Vehicle{
     pub velocity: f32,
     pub acceleration: f32,
     pub break_decceleration: f32,
-    pub on_road: usize
+    pub on_road: usize,
+    pub watch_distance: f32,
+    pub destination: usize,
+    pub destination_position: f32
 }
 
 // Implement the Display trait for the Vehicle struct.
@@ -95,9 +101,9 @@ impl std::fmt::Display for Vehicle {
 // Returns a World struct.
 pub fn sample_world() -> World{
     let mut world = World::new();
-    world.add_road((0.0,0.0,0.0),(0.0,0.0,100.0),1,100.0,0,1,10.0);
-    world.add_road((0.0,0.0,100.0),(100.0,0.0,100.0),1,100.0,1,0,10.0);
-    world.add_vehicle(0.0,0.0,5.0,5.0,0);
-    world.add_vehicle(0.0,0.0,5.0,5.0,1);
+    world.add_road((0.0,0.0,0.0),(0.0,0.0,500.0),1,100.0,0,1,10.0);
+    world.add_road((0.0,0.0,500.0),(0.0,0.0,0.0),1,100.0,1,0,10.0);
+    world.add_vehicle(0.0,0.0,5.0,-10.0,0,200.0,1,250.0);
+    world.add_vehicle(0.0,0.0,4.0,-7.0,1,250.0,0,311.0);
     return world;
 }
