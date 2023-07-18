@@ -2,12 +2,12 @@ pub use crate::comp::*;
 use ordered_float::OrderedFloat;
 
 // 
-pub fn update(t:f32,world:&mut World){
+pub fn update_comp(t:f32,world:&mut World){
     let vehicles = &mut world.vehicles;
     let roads =  &world.roads;
     for mut vehicle in vehicles.iter_mut(){
         let (dist,end_speed_limit) = check_road_end(vehicle,roads);
-        if check_destination_start_break(vehicle,roads){
+        if check_destination_start_break(vehicle){
             decrease_speed(&mut vehicle,&t,dist,0.0);
         }
         else{
@@ -24,10 +24,14 @@ pub fn update(t:f32,world:&mut World){
     
 }
 
-fn check_road_end(vehicle:&Vehicle,roads:&Vec<Road>) -> (f32,f32){
+fn check_road_end(vehicle:&mut Vehicle,roads:&Vec<Road>) -> (f32,f32){
     let mut nearest_obstacle:OrderedFloat<f32> = roads[vehicle.on_road].length+1.0;
     let vehicle_position:OrderedFloat<f32> = vehicle.position.into();
     
+    if vehicle_position >= roads[vehicle.on_road].length.into(){
+        vehicle.on_road = roads[vehicle.on_road].to_road;
+        vehicle.position = 0.0;
+    }
     for (key,_) in roads[vehicle.on_road].obstacle_map.iter(){
         if vehicle_position <= *key && vehicle_position >= *key - vehicle.watch_distance{
             if *key - vehicle.position < nearest_obstacle{
@@ -102,7 +106,7 @@ fn decrease_speed(vehicle:&mut Vehicle,t:&f32,dist:f32,end_speed_limit:f32){
 
 
 //Check if vehicle is near destination and start breaking
-fn check_destination_start_break(vehicle:&Vehicle,roads:&Vec<Road>) -> bool{
+fn check_destination_start_break(vehicle:&Vehicle) -> bool{
     if vehicle.on_road == vehicle.destination{
 
         //Considered half break decceleration as normal decceleration
@@ -113,3 +117,4 @@ fn check_destination_start_break(vehicle:&Vehicle,roads:&Vec<Road>) -> bool{
     }
     false
 }
+

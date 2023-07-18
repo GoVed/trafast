@@ -1,8 +1,9 @@
 // Purpose: Contains structs and functions for the simulation components.
 use std::collections::HashMap;
 use ordered_float::OrderedFloat;
-
+use bevy::prelude::Resource;
 // World struct contains all the roads and vehicles in the simulation.
+#[derive(Resource)]
 pub struct World{
     pub roads: Vec<Road>,
     pub vehicles: Vec<Vehicle>,
@@ -51,6 +52,7 @@ impl World{
         road.obstacle_map.insert(OrderedFloat((road.length*10.0).round()/10.0),road.end_speed_limit);
         self.roads.push(road);
     }
+    
 }
 
 // Road struct contains the length, number of lanes, and speed limit of a road.}
@@ -101,8 +103,8 @@ impl std::fmt::Display for Vehicle {
 // Returns a World struct.
 pub fn sample_world() -> World{
     let mut world = World::new();
-    world.add_road((0.0,0.0,0.0),(0.0,0.0,500.0),1,100.0,0,1,10.0);
-    world.add_road((0.0,0.0,500.0),(0.0,0.0,0.0),1,100.0,1,0,10.0);
+    world.add_road((0.0,10.0,0.0),(500.0,10.0,0.0),1,100.0,0,1,10.0);
+    world.add_road((500.0,-10.0,0.0),(0.0,-10.0,0.0),1,100.0,1,0,10.0);
     world.add_vehicle(0.0,0.0,5.0,-10.0,0,200.0,1,250.0);
     world.add_vehicle(0.0,0.0,4.0,-7.0,1,250.0,0,311.0);
     return world;
