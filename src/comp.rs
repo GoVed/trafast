@@ -49,6 +49,8 @@ impl World{
             obstacle_map: HashMap::new(),
             end_speed_limit: end_speed_limit
         };
+
+        //.x0 is for road ends
         road.obstacle_map.insert(OrderedFloat((road.length*10.0).round()/10.0),road.end_speed_limit);
         self.roads.push(road);
     }
