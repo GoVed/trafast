@@ -3,6 +3,8 @@ use bevy::prelude::*;
 pub use crate::comp::*;
 pub use crate::comp::World;
 pub use crate::phy::*;
+
+
 pub fn run(){
     App::new()
     .insert_resource(World {
@@ -25,31 +27,51 @@ fn create_sample_world(mut world: ResMut<World>){
     world.add_road((0.0,10.0,0.0),(500.0,10.0,0.0),1,100.0,0,1,10.0);
     world.add_road((500.0,-10.0,0.0),(0.0,-10.0,0.0),1,100.0,1,0,10.0);
     world.add_vehicle(0.0,0.0,5.0,-10.0,0,200.0,1,250.0);
-    world.add_vehicle(0.0,0.0,4.0,-7.0,1,250.0,0,311.0);
+    world.add_vehicle(0.0,0.0,4.0,-7.0,1,250.0,0,250.0);
 }
+
+// A unit struct to help identify the FPS UI component, since there may be many Text components
+#[derive(Component)]
+struct FpsText;
+
 
 #[derive(Component)]
 struct BevyVehicle;
 
-fn update_frame(mut world: ResMut<World>, time: Res<Time>, mut query: Query<(&mut Transform, &mut BevyVehicle)>) {
-
-    update_comp(time.delta_seconds(),&mut world);
-
-    let mut i = 0;
-    for (mut t,v) in query.iter_mut() {
-        let veh = &world.vehicles[i];
-        let road_from = Vec3::new(world.roads[veh.on_road].from.0, world.roads[veh.on_road].from.1, world.roads[veh.on_road].from.2);
-        let road_to = Vec3::new(world.roads[veh.on_road].to.0, world.roads[veh.on_road].to.1, world.roads[veh.on_road].to.2);
-        let road_length = (road_to - road_from).length();
-        let position = road_from + (road_to - road_from) * (veh.position/road_length);
-        t.translation = position;
-        i+=1;
+fn update_frame(mut world: ResMut<World>, time: Res<Time>, mut query: Query<(&mut Transform,Entity), With<BevyVehicle>>, mut commands: Commands, mut text_query: Query<&mut Text, With<FpsText>>) {
+    for mut text in &mut text_query {
+        text.sections[1].value = format!("{:.2}", 1.0/time.delta_seconds());
     }
+    if !query.is_empty() {  
+        update_comp(time.delta_seconds(),&mut world);     
+        
+        let mut i = 0;
+        for (mut t,v) in query.iter_mut() {
+            let veh = &world.vehicles[i];
+            if i >= world.vehicles.len() {
+                commands.entity(v).despawn();
+            }
+            else{
+                
+                let road_from = Vec3::new(world.roads[veh.on_road].from.0, world.roads[veh.on_road].from.1, world.roads[veh.on_road].from.2);
+                let road_to = Vec3::new(world.roads[veh.on_road].to.0, world.roads[veh.on_road].to.1, world.roads[veh.on_road].to.2);
+                let road_length = (road_to - road_from).length();
+                let position = road_from + (road_to - road_from) * (veh.position/road_length);
+                t.translation = position;
+            }
+            println!("V{}\t{}\t{}",i,veh.velocity,veh.position);
+            i+=1;
+        }
+    }
+    else{
+        update_comp(0.0,&mut world);
+    }
+    
     
 }
 
-fn set_initial_state(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<StandardMaterial>>,mut world: ResMut<World>){
-    update_comp(0.0,&mut world);
+fn set_initial_state(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<StandardMaterial>>,mut world: ResMut<World>, asset_server: Res<AssetServer>){
+    
     for road in &world.roads {
         let from_vec3 = Vec3::new(road.from.0, road.from.1, road.from.2);
         let to_vec3 = Vec3::new(road.to.0, road.to.1, road.to.2);
@@ -87,6 +109,27 @@ fn set_initial_state(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, m
             ..Default::default()
         },BevyVehicle));
     }
+
+    // Text with multiple sections
+    commands.spawn((
+        // Create a TextBundle that has a Text with a list of sections.
+        TextBundle::from_sections([
+            TextSection::new(
+                "FPS: ",
+                TextStyle {
+                    font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                    font_size: 20.0,
+                    color: Color::WHITE,
+                },
+            ),
+            TextSection::from_style(TextStyle {
+                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                font_size: 20.0,
+                color: Color::GOLD,
+            }),
+        ]),
+        FpsText,
+    ));
 }
 
 #[derive(Component)]

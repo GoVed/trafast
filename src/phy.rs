@@ -1,13 +1,15 @@
 pub use crate::comp::*;
 use ordered_float::OrderedFloat;
 
-// 
+//Update vehicle position and velocity
 pub fn update_comp(t:f32,world:&mut World){
     let vehicles = &mut world.vehicles;
     let roads =  &world.roads;
+
     for mut vehicle in vehicles.iter_mut(){
         let (dist,end_speed_limit) = check_road_end(vehicle,roads);
         if check_destination_start_break(vehicle){
+            let dist:f32 = vehicle.destination_position - vehicle.position;
             decrease_speed(&mut vehicle,&t,dist,0.0);
         }
         else{
@@ -76,14 +78,19 @@ fn increase_speed(vehicle:&mut Vehicle,roads:&Vec<Road>,t:&f32){
 
 //Decrease speed of vehicle
 fn decrease_speed(vehicle:&mut Vehicle,t:&f32,dist:f32,end_speed_limit:f32){
-    if vehicle.velocity > end_speed_limit{
-        let v:f32 = &vehicle.velocity +  &vehicle.break_decceleration * t;
+    let normal_end_speed_limit:f32 = end_speed_limit*0.75;
+    if vehicle.velocity > normal_end_speed_limit{
+        //Leeway for early stop
+        let early_stop_distance:f32 = 0.0;
+        //Calculate required decceleration and check if it is greater than break decceleration a= (v^2 - u^2)/2s
+        let mut required_decceleration:f32 = (vehicle.velocity.powi(2) - normal_end_speed_limit.powi(2))/(2.0*(dist - early_stop_distance));
+        if required_decceleration > -1.0*vehicle.break_decceleration || required_decceleration < 0.0{            
+            required_decceleration = vehicle.break_decceleration;
+        }        
+        let v:f32 = &vehicle.velocity +  required_decceleration * t;
         if v < end_speed_limit{
-            let early_stop_distance:f32 = vehicle.velocity;
-            let mut required_decceleration:f32 = (&vehicle.velocity.powi(2) - end_speed_limit.powi(2))/(2.0*(dist+early_stop_distance));
-            if required_decceleration > vehicle.break_decceleration{
-                required_decceleration = vehicle.break_decceleration;
-            }
+            
+            //Calculate time to reach target
             let targett:f32 = (&vehicle.velocity - end_speed_limit)/&required_decceleration;
             //Update position
             vehicle.position += &vehicle.velocity * targett + (&required_decceleration * targett.powi(2)/2.0);
@@ -94,7 +101,7 @@ fn decrease_speed(vehicle:&mut Vehicle,t:&f32,dist:f32,end_speed_limit:f32){
         }
         else{
             //Update position
-            vehicle.position += &vehicle.velocity * t + (&vehicle.break_decceleration * t.powi(2)/2.0);
+            vehicle.position += &vehicle.velocity * t + (required_decceleration * t.powi(2)/2.0);
             //Update velocity
             vehicle.velocity = v;
         }
@@ -110,7 +117,8 @@ fn check_destination_start_break(vehicle:&Vehicle) -> bool{
     if vehicle.on_road == vehicle.destination{
 
         //Considered half break decceleration as normal decceleration
-        let break_distance:f32 = vehicle.velocity.powi(2)/(vehicle.break_decceleration);
+        let break_distance:f32 = -1.0*vehicle.velocity.powi(2)/(vehicle.break_decceleration);
+        
         if vehicle.destination_position - vehicle.position < break_distance{
             return true;
         }
