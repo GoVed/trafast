@@ -39,99 +39,141 @@ struct FpsText;
 #[derive(Component)]
 struct BevyVehicle;
 
+//A struct to help identify the road
+#[derive(Component)]
+struct BevyRoad;
+
 
 //Updates the frame
-fn update_frame(mut world: ResMut<World>, time: Res<Time>, mut query: Query<(&mut Transform,Entity), With<BevyVehicle>>, mut commands: Commands, mut text_query: Query<&mut Text, With<FpsText>>) {
+fn update_frame(
+    mut world: ResMut<World>, 
+    time: Res<Time>, 
+    mut param_set: ParamSet<'_,'_, (
+        Query<(&mut Transform, Entity), With<BevyVehicle>>,
+        Query<(&mut Transform, Entity), With<BevyRoad>>
+    )>, 
+    mut commands: Commands, 
+    mut text_query: Query<&mut Text, With<FpsText>>, 
+    mut meshes: ResMut<Assets<Mesh>>, 
+    mut materials: ResMut<Assets<StandardMaterial>>) {
+    
     // Update the FPS counter text
     for mut text in &mut text_query {
         text.sections[1].value = format!("{:.2}", 1.0/time.delta_seconds());
     }
 
     
-    if !query.is_empty() {  
+    //Update the vehicle position
+    update_comp(time.delta_seconds(),&mut world);     
 
-        //Update the vehicle position
-        update_comp(time.delta_seconds(),&mut world);     
+    
         
-        let mut i = 0;
+    let mut i = 0;
 
-        //Update the vehicle position in the GUI
-        for (mut t,v) in query.iter_mut() {
-            
+    //Update the vehicle position in the GUI
+    for (mut t,v) in param_set.p0().iter_mut() {
+        
 
-            //Despawn the vehicle in GUI if it is not in the world
-            if i >= world.vehicles.len() {
-                commands.entity(v).despawn();
-            }
-            else{
-                let veh = &world.vehicles[i];
-                //Calculate the position of the vehicle
-                let road_from = Vec3::new(world.roads[veh.on_road].from.0, world.roads[veh.on_road].from.1, world.roads[veh.on_road].from.2);
-                let road_to = Vec3::new(world.roads[veh.on_road].to.0, world.roads[veh.on_road].to.1, world.roads[veh.on_road].to.2);
-                let road_length = (road_to - road_from).length();
-                let position = road_from + (road_to - road_from) * (veh.position/road_length);
-                t.translation = position;
-            }
+        //Despawn the vehicle in GUI if it is not in the world
+        if i >= world.vehicles.len() {
+            commands.entity(v).despawn();
+        }
+        else{
+            let veh = &world.vehicles[i];
+            //Calculate the position of the vehicle
+            let road_from = Vec3::new(world.roads[veh.on_road].from.0, world.roads[veh.on_road].from.1, world.roads[veh.on_road].from.2);
+            let road_to = Vec3::new(world.roads[veh.on_road].to.0, world.roads[veh.on_road].to.1, world.roads[veh.on_road].to.2);
+            let road_length = (road_to - road_from).length();
+            let position = road_from + (road_to - road_from) * (veh.position/road_length);
+            t.translation = position;
+        }
 
-            i+=1;
+        i+=1;
+    }
+
+    //Spawn the new vehicles in GUI
+    if param_set.p0().iter_mut().len() < world.vehicles.len(){
+        for i in param_set.p0().iter_mut().len()..world.vehicles.len(){
+            spawn_vehicle(&mut commands, &mut meshes, &mut materials, &world.vehicles[i], &world);
         }
     }
-    else{
-        update_comp(0.0,&mut world);
+
+    i = 0;
+    //Update the road position in the GUI
+    for (mut t,v) in param_set.p1().iter_mut() {
+        //Despawn the road in GUI if it is not in the world
+        if i >= world.roads.len() {
+            commands.entity(v).despawn();
+        }
+        else{
+            let road = &world.roads[i];
+            //Calculate the position of the road
+            let from_vec3 = Vec3::new(road.from.0, road.from.1, road.from.2);
+            let to_vec3 = Vec3::new(road.to.0, road.to.1, road.to.2);
+            let center = (from_vec3 + to_vec3) / 2.0;
+            let size = (from_vec3 - to_vec3).length();
+            let width = 10.0;
+            let rotation = Quat::from_rotation_z((to_vec3 - from_vec3).y.atan2((to_vec3 - from_vec3).x));
+            t.translation = center;
+            t.rotation = rotation;
+        }
+        i+=1;
+    }
+
+    //Spawn the new roads in GUI
+    if param_set.p1().iter_mut().len() < world.roads.len(){
+        for i in param_set.p1().iter_mut().len()..world.roads.len(){
+            spawn_road(&mut commands, &mut meshes, &mut materials, &world.roads[i]);
+        }
     }
     
     
 }
 
+fn spawn_road( commands: &mut Commands, meshes: &mut ResMut<Assets<Mesh>>, materials: &mut ResMut<Assets<StandardMaterial>>,road: &Road){
+    //Calculate the position of the road
+    let from_vec3 = Vec3::new(road.from.0, road.from.1, road.from.2);
+    let to_vec3 = Vec3::new(road.to.0, road.to.1, road.to.2);
+    let center = (from_vec3 + to_vec3) / 2.0;
+    let size = (from_vec3 - to_vec3).length();
+    let width = 10.0;
+    let rotation = Quat::from_rotation_z((to_vec3 - from_vec3).y.atan2((to_vec3 - from_vec3).x));
+
+    //Spawn the road
+    commands.spawn((PbrBundle {
+        mesh: meshes.add(Mesh::from(shape::Quad { size: Vec2::new(size,width), flip: false})),
+        material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+        transform: Transform{
+            translation: center,
+            rotation: rotation,
+            ..Default::default()
+        },
+        ..Default::default()
+    },BevyRoad));
+}
+
+fn spawn_vehicle(commands: &mut Commands, meshes: &mut ResMut<Assets<Mesh>>, materials: &mut ResMut<Assets<StandardMaterial>>,vehicle: &Vehicle, world: &ResMut<World>){
+    //Calculate the position of the vehicle
+    let road_from = Vec3::new(world.roads[vehicle.on_road].from.0, world.roads[vehicle.on_road].from.1, world.roads[vehicle.on_road].from.2);
+    let road_to = Vec3::new(world.roads[vehicle.on_road].to.0, world.roads[vehicle.on_road].to.1, world.roads[vehicle.on_road].to.2);
+    let road_length = (road_to - road_from).length();
+    let position = road_from + (road_to - road_from) * (vehicle.position/road_length);
+
+    //Spawn the vehicle
+    commands.spawn((PbrBundle {
+        mesh: meshes.add(Mesh::from(shape::Cube { size: 5.0 })),
+        material: materials.add(Color::rgb(0.8, 0.2, 0.2).into()),
+        transform: Transform {
+            translation: position,
+            ..Default::default()
+        },
+        ..Default::default()
+    },BevyVehicle));
+}
+
 //Sets the initial state of the GUI
 fn set_initial_state(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<StandardMaterial>>,mut world: ResMut<World>, asset_server: Res<AssetServer>){
     
-    // Spawn the roads
-    for road in &world.roads {
-
-        //Calculate the position of the road
-        let from_vec3 = Vec3::new(road.from.0, road.from.1, road.from.2);
-        let to_vec3 = Vec3::new(road.to.0, road.to.1, road.to.2);
-        let center = (from_vec3 + to_vec3) / 2.0;
-        let size = (from_vec3 - to_vec3).length();
-        let width = 10.0;
-        let rotation = Quat::from_rotation_z((to_vec3 - from_vec3).y.atan2((to_vec3 - from_vec3).x));
-
-        //Spawn the road
-        commands.spawn(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Quad { size: Vec2::new(size,width), flip: false})),
-            material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
-            transform: Transform{
-                translation: center,
-                rotation: rotation,
-                ..Default::default()
-            },
-            ..Default::default()
-        });
-    }
-
-    // Spawn the vehicles on the road
-    for vehicle in &world.vehicles {
-        let vehicle_size = 5.0; // Adjust the size of the vehicle
-
-        //Calculate the position of the vehicle
-        let road_from = Vec3::new(world.roads[vehicle.on_road].from.0, world.roads[vehicle.on_road].from.1, world.roads[vehicle.on_road].from.2);
-        let road_to = Vec3::new(world.roads[vehicle.on_road].to.0, world.roads[vehicle.on_road].to.1, world.roads[vehicle.on_road].to.2);
-        let road_length = (road_to - road_from).length();
-        let position = road_from + (road_to - road_from) * (vehicle.position/road_length);
-        
-
-        //Spawn the vehicle
-        commands.spawn((PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: vehicle_size })),
-            material: materials.add(Color::rgb(0.8, 0.2, 0.2).into()),
-            transform: Transform {
-                translation: position,
-                ..Default::default()
-            },
-            ..Default::default()
-        },BevyVehicle));
-    }
 
     // Text with multiple sections
     commands.spawn((
