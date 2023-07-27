@@ -1,0 +1,54 @@
+{
+    "roads": [
+      {
+        "from": [0.0, 10.0, 0.0],
+        "to": [500.0, 10.0, 0.0],
+        "lanes": 1,
+        "speed_limit": 100.0,
+        "from_road": 0,
+        "to_road": 1,
+        "end_speed_limit": 5.0
+      },
+      {
+        "from": [500.0, -10.0, 0.0],
+        "to": [0.0, -10.0, 0.0],
+        "lanes": 1,
+        "speed_limit": 100.0,
+        "from_road": 1,
+        "to_road": 0,
+        "end_speed_limit": 7.5
+      }
+    ],
+    "vehicles": [
+      {
+        "position": 0.0,
+        "velocity": 0.0,
+        "acceleration": 5.0,
+        "break_deceleration": -10.0,
+        "on_road": 0,
+        "watch_distance": 200.0,
+        "destination": 1,
+        "destination_position": 250.0
+      },
+      {
+        "position": 50.0,
+        "velocity": 0.0,
+        "acceleration": 3.0,
+        "break_deceleration": -20.0,
+        "on_road": 0,
+        "watch_distance": 150.0,
+        "destination": 1,
+        "destination_position": 100.0
+      },
+      {
+        "position": 0.0,
+        "velocity": 0.0,
+        "acceleration": 4.0,
+        "break_deceleration": -7.0,
+        "on_road": 1,
+        "watch_distance": 250.0,
+        "destination": 0,
+        "destination_position": 250.0
+      }
+    ]
+  }

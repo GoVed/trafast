@@ -3,6 +3,8 @@ use bevy::prelude::*;
 pub use crate::comp::*;
 pub use crate::comp::World;
 pub use crate::phy::*;
+use std::fs::File;
+use std::io::Read;
 
 
 pub fn run(){
@@ -17,7 +19,20 @@ pub fn run(){
     .add_startup_system(set_initial_state)
     .add_system(update_frame)
     .add_plugins(DefaultPlugins)
+    .add_system(file_drag_and_drop_system)
     .run(); 
+}
+
+fn file_drag_and_drop_system(mut events: EventReader<FileDragAndDrop>,mut world: ResMut<World>) {
+    for event in events.iter() {
+        if let FileDragAndDrop::DroppedFile { window, path_buf } = event {
+            println!("Dropped file with path: {:?}, in window id: {:?}", path_buf, window);
+            let mut file = File::open(path_buf).expect("Unable to open");
+            let mut contents = String::new();
+            file.read_to_string(&mut contents);
+            world.load_json(contents);
+        }
+    }
 }
 
 

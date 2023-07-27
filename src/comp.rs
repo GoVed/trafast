@@ -2,6 +2,8 @@
 use std::collections::HashMap;
 use ordered_float::OrderedFloat;
 use bevy::prelude::Resource;
+use serde::Deserialize;
+
 // World struct contains all the roads and vehicles in the simulation.
 #[derive(Resource)]
 pub struct World{
@@ -15,6 +17,36 @@ impl std::fmt::Display for World {
         write!(f, "Roads: {:?}\nVehicles:{:?})", self.roads, self.vehicles)
     }
 }
+// Deserialize the JSON data into corresponding structs
+#[derive(Deserialize)]
+struct RoadData {
+    from: [f32; 3],
+    to: [f32; 3],
+    lanes: u8,
+    speed_limit: f32,
+    from_road: usize,
+    to_road: usize,
+    end_speed_limit: f32,
+}
+
+#[derive(Deserialize)]
+struct VehicleData {
+    position: f32,
+    velocity: f32,
+    acceleration: f32,
+    break_deceleration: f32,
+    on_road: usize,
+    watch_distance: f32,
+    destination: usize,
+    destination_position: f32,
+}
+
+#[derive(Deserialize)]
+struct WorldData {
+    roads: Vec<RoadData>,
+    vehicles: Vec<VehicleData>,
+}
+
 
 impl World{
     fn new() -> World{
@@ -54,7 +86,40 @@ impl World{
         road.obstacle_map.insert(OrderedFloat((road.length*10.0).round()/10.0),road.end_speed_limit);
         self.roads.push(road);
     }
-    
+    pub fn reset(&mut self){
+        self.roads.clear();
+        self.vehicles.clear();
+    }
+    pub fn load_json(&mut self,contents:String){
+        self.reset();
+        let world_data: WorldData = serde_json::from_str(&contents).expect("Failed to deserialize JSON data.");
+        // Add roads from the JSON data
+        for road_data in world_data.roads {
+            self.add_road(
+                (road_data.from[0], road_data.from[1], road_data.from[2]),
+                (road_data.to[0], road_data.to[1], road_data.to[2]),
+                road_data.lanes,
+                road_data.speed_limit,
+                road_data.from_road,
+                road_data.to_road,
+                road_data.end_speed_limit,
+            );
+        }
+
+        // Add vehicles from the JSON data
+        for vehicle_data in world_data.vehicles {
+            self.add_vehicle(
+                vehicle_data.position,
+                vehicle_data.velocity,
+                vehicle_data.acceleration,
+                vehicle_data.break_deceleration,
+                vehicle_data.on_road,
+                vehicle_data.watch_distance,
+                vehicle_data.destination,
+                vehicle_data.destination_position,
+            );
+        }
+    }
 }
 
 // Road struct contains the length, number of lanes, and speed limit of a road.}
