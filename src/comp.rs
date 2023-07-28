@@ -1,8 +1,10 @@
 // Purpose: Contains structs and functions for the simulation components.
-use std::collections::HashMap;
+
 use ordered_float::OrderedFloat;
 use bevy::prelude::Resource;
 use serde::Deserialize;
+use std::collections::{BinaryHeap, HashMap};
+use std::cmp::Reverse;
 
 // World struct contains all the roads and vehicles in the simulation.
 #[derive(Resource)]
@@ -24,8 +26,8 @@ struct RoadData {
     to: [f32; 3],
     lanes: u8,
     speed_limit: f32,
-    from_road: usize,
-    to_road: usize,
+    from_road: Vec<usize>,
+    to_road: Vec<usize>,
     end_speed_limit: f32,
 }
 
@@ -56,7 +58,7 @@ impl World{
         }
     }
     pub fn add_vehicle(&mut self,position:f32,velocity:f32,acceleration:f32,break_decceleration:f32,on_road:usize,watch_distance:f32,destination:usize,destination_position:f32){
-        let vehicle = Vehicle{
+        let mut vehicle = Vehicle{
             position: position,
             velocity: velocity,
             acceleration: acceleration,
@@ -64,12 +66,16 @@ impl World{
             on_road: on_road,
             watch_distance: watch_distance,
             destination: destination,
-            destination_position: destination_position
+            destination_position: destination_position,
+            path: Vec::new()
         };
         
+        vehicle.path = self.find_shortest_path(vehicle.on_road, vehicle.destination);
+        vehicle.path.remove(0);
+        println!("Path: {:?}", vehicle.path);
         self.vehicles.push(vehicle);
     }
-    pub fn add_road(&mut self,from:(f32,f32,f32),to:(f32,f32,f32),lanes:u8,speed_limit:f32,from_road:usize,to_road:usize,end_speed_limit:f32){
+    pub fn add_road(&mut self,from:(f32,f32,f32),to:(f32,f32,f32),lanes:u8,speed_limit:f32,from_road:Vec<usize>,to_road:Vec<usize>,end_speed_limit:f32){
         let mut road = Road{
             from: from,
             to: to,
@@ -120,6 +126,73 @@ impl World{
             );
         }
     }
+
+    // Helper function to get adjacent roads for a given road index
+    fn get_adjacent_roads(&self, road_index: usize) -> &[usize] {
+        if road_index < self.roads.len() {
+            let road = &self.roads[road_index];
+            &road.to_road
+        } else {
+            &[]
+        }
+    }
+
+    // Helper function to get the distance between two roads
+    fn get_distance_between_roads(&self, road_index_1: usize, road_index_2: usize) -> f32 {
+        if road_index_1 < self.roads.len() && road_index_2 < self.roads.len() {
+            let road_1 = &self.roads[road_index_1];
+            let road_2 = &self.roads[road_index_2];
+            // For simplicity, assume 3D Euclidean distance between roads' end points
+            ((road_1.to.0 - road_2.from.0).powi(2) + (road_1.to.1 - road_2.from.1).powi(2)).sqrt()
+        } else {
+            f32::INFINITY
+        }
+    }
+
+    // Heuristic function to estimate the cost from a given road to the destination road.
+    fn heuristic(&self, road_index: usize, destination_road: usize) -> OrderedFloat<f32> {
+        OrderedFloat(self.get_distance_between_roads(road_index, destination_road))
+    }
+
+    // Function to find the shortest path using A* algorithm
+    fn find_shortest_path(&self, start_road: usize, destination_road: usize) -> Vec<usize> {
+        let mut distances = HashMap::new();
+        let mut previous = HashMap::new();
+        let mut queue = BinaryHeap::new();
+
+        distances.insert(start_road, OrderedFloat(0.0));
+        queue.push(Reverse((OrderedFloat(0.0) + self.heuristic(start_road, destination_road), start_road)));
+
+        while let Some(Reverse((current_distance, current_road))) = queue.pop() {
+            if current_road == destination_road {
+                break;
+            }
+
+            for &next_road in self.get_adjacent_roads(current_road) {
+                let distance_to_next = self.get_distance_between_roads(current_road, next_road);
+                let total_distance = current_distance - self.heuristic(current_road, destination_road) + OrderedFloat(distance_to_next);
+
+                if !distances.contains_key(&next_road) || total_distance < *distances.get(&next_road).unwrap() {
+                    distances.insert(next_road, total_distance);
+                    previous.insert(next_road, current_road);
+                    queue.push(Reverse((total_distance + self.heuristic(next_road, destination_road), next_road)));
+                }
+            }
+        }
+
+        // Reconstruct the path
+        let mut path = Vec::new();
+        let mut current_road = destination_road;
+        while let Some(&prev) = previous.get(&current_road) {
+            path.push(current_road);
+            current_road = prev;
+        }
+        path.push(start_road);
+        path.reverse();
+        path
+    }
+
+
 }
 
 // Road struct contains the length, number of lanes, and speed limit of a road.}
@@ -130,8 +203,8 @@ pub struct Road{
     pub length: OrderedFloat<f32>,
     pub lanes: u8,
     pub speed_limit: f32,
-    pub from_road: usize,
-    pub to_road: usize,
+    pub from_road: Vec<usize>,
+    pub to_road: Vec<usize>,
     pub obstacle_map: HashMap<OrderedFloat<f32>,f32>,
     pub end_speed_limit: f32
 }
@@ -154,7 +227,8 @@ pub struct Vehicle{
     pub on_road: usize,
     pub watch_distance: f32,
     pub destination: usize,
-    pub destination_position: f32
+    pub destination_position: f32,
+    pub path: Vec<usize>
 }
 
 // Implement the Display trait for the Vehicle struct.
@@ -170,8 +244,8 @@ impl std::fmt::Display for Vehicle {
 // Returns a World struct.
 pub fn sample_world() -> World{
     let mut world = World::new();
-    world.add_road((0.0,10.0,0.0),(500.0,10.0,0.0),1,100.0,0,1,10.0);
-    world.add_road((500.0,-10.0,0.0),(0.0,-10.0,0.0),1,100.0,1,0,10.0);
+    world.add_road((0.0,10.0,0.0),(500.0,10.0,0.0),1,100.0,vec![0],vec![1],10.0);
+    world.add_road((500.0,-10.0,0.0),(0.0,-10.0,0.0),1,100.0,vec![1],vec![0],10.0);
     world.add_vehicle(0.0,0.0,5.0,-10.0,0,200.0,1,250.0);
     world.add_vehicle(0.0,0.0,4.0,-7.0,1,250.0,0,311.0);
     return world;

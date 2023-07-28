@@ -39,8 +39,8 @@ fn file_drag_and_drop_system(mut events: EventReader<FileDragAndDrop>,mut world:
 
 //Creates a sample world with 2 roads and 2 vehicles
 fn create_sample_world(mut world: ResMut<World>){
-    world.add_road((0.0,10.0,0.0),(500.0,10.0,0.0),1,100.0,0,1,5.0);
-    world.add_road((500.0,-10.0,0.0),(0.0,-10.0,0.0),1,100.0,1,0,7.5);
+    world.add_road((0.0,10.0,0.0),(500.0,10.0,0.0),1,100.0,vec![0],vec![1],5.0);
+    world.add_road((500.0,-10.0,0.0),(0.0,-10.0,0.0),1,100.0,vec![1],vec![0],7.5);
     world.add_vehicle(0.0,0.0,5.0,-10.0,0,200.0,1,250.0);
     world.add_vehicle(50.0,0.0,3.0,-20.0,0,150.0,1,100.0);
     world.add_vehicle(0.0,0.0,4.0,-7.0,1,250.0,0,250.0);
@@ -157,7 +157,7 @@ fn spawn_road( commands: &mut Commands, meshes: &mut ResMut<Assets<Mesh>>, mater
     //Spawn the road
     commands.spawn((PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Quad { size: Vec2::new(size,width), flip: false})),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+        material: materials.add(Color::rgb(0.1, 0.1, 0.15).into()),
         transform: Transform{
             translation: center,
             rotation: rotation,
@@ -219,7 +219,7 @@ struct WorldCamera;
 fn spawn_camera(mut commands: Commands){
     commands.spawn((Camera3dBundle{
         transform: Transform{
-            translation: Vec3::new(100.0, -250.0, 500.0),
+            translation: Vec3::new(500.0, -500.0, 1000.0),
             rotation: Quat::from_rotation_x(0.3),
             ..Default::default()
         },

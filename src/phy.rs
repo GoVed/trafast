@@ -50,7 +50,7 @@ fn check_road_obstacle(vehicle:&mut Vehicle,roads:&Vec<Road>) -> (f32,f32){
     let vehicle_position:OrderedFloat<f32> = vehicle.position.into();
     let mut nearest_obstacle_speed:f32 = 0.0;
     if vehicle_position >= roads[vehicle.on_road].length.into(){
-        vehicle.on_road = roads[vehicle.on_road].to_road;
+        vehicle.on_road = vehicle.path.remove(0);
         vehicle.position = 0.0;
     }
     for (key,_) in roads[vehicle.on_road].obstacle_map.iter(){
